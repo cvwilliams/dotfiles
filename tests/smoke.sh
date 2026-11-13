@@ -22,14 +22,25 @@ bash -n "$REPO/macos.sh" || fail "macos.sh has a syntax error"
 pass "syntax"
 
 # --- install.sh ---------------------------------------------------------------
+# Start with an existing ~/.gitconfig, as on a Mac that already uses git
+printf '[user]\n\tname = Test Person\n\temail = test@example.com\n' > "$TEST_HOME/.gitconfig"
+
 HOME="$TEST_HOME" "$REPO/install.sh" >/dev/null
-for f in .vimrc .zprofile .zshrc; do
+for f in .gitconfig .gitignore_global .vimrc .zprofile .zshrc; do
   [[ -L "$TEST_HOME/$f" ]] || fail "install.sh did not link ~/$f"
 done
-if HOME="$TEST_HOME" "$REPO/install.sh" | grep -q '^backup'; then
-  fail "re-running install.sh backed up files it had already linked"
+if HOME="$TEST_HOME" "$REPO/install.sh" | grep -qE '^(backup|moved)'; then
+  fail "re-running install.sh changed files it had already set up"
 fi
 pass "install.sh links files and is safe to re-run"
+
+# --- git ----------------------------------------------------------------------
+[[ "$(HOME="$TEST_HOME" git config user.name)" == "Test Person" ]] \
+  || fail "git name wasn't carried over to ~/.gitconfig.local"
+[[ "$(HOME="$TEST_HOME" git config init.defaultBranch)" == "main" ]] \
+  || fail "gitconfig settings aren't active"
+HOME="$TEST_HOME" git config alias.st >/dev/null || fail "git aliases missing"
+pass "git keeps your identity and loads gitconfig"
 
 # --- zsh ----------------------------------------------------------------------
 # A login + interactive shell must print nothing and start with exit status 0

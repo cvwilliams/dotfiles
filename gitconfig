@@ -1,0 +1,63 @@
+# gitconfig -- git settings, linked to ~/.gitconfig
+# Your name and email live in ~/.gitconfig.local (not in this repo), which is
+# included at the end so anything there overrides these settings.
+
+[init]
+	defaultBranch = main
+
+[core]
+	editor = vim
+	excludesFile = ~/.gitignore_global   # Ignore .DS_Store, swap files, .env everywhere
+
+[status]
+	showUntrackedFiles = all     # List files inside new folders, not just the folder
+
+[diff]
+	algorithm = histogram        # Clearer diffs when code moves around
+	colorMoved = default         # Show moved lines in a different color
+
+[merge]
+	conflictStyle = zdiff3       # Conflict markers also show the original text
+
+[pull]
+	ff = only                    # Never create a surprise merge commit on pull
+
+[push]
+	autoSetupRemote = true       # First push of a new branch doesn't need -u
+	followTags = true            # Push annotated tags that point at pushed commits
+
+[fetch]
+	prune = true                 # Forget remote branches that were deleted
+
+[rebase]
+	autoStash = true             # Stash and restore local changes around a rebase
+
+[rerere]
+	enabled = true               # Remember how a conflict was resolved and reuse it
+
+[commit]
+	verbose = true               # Show the diff below the commit message in the editor
+
+[branch]
+	sort = -committerdate        # git branch lists the most recent branches first
+
+[tag]
+	sort = version:refname       # v1.10 sorts after v1.9
+
+[help]
+	autocorrect = prompt         # Offer to run the command you probably meant
+
+[alias]
+	st = status --short --branch
+	lg = log --graph --pretty=format:'%C(yellow)%h%Creset %s %C(cyan)(%cr)%Creset %C(magenta)%an%Creset%C(auto)%d%Creset'
+	last = log -1 HEAD --stat
+	undo = reset --soft HEAD~1   # Undo the last commit, keep its changes staged
+	amend = commit --amend --no-edit
+	unstage = restore --staged --
+	discard = restore --          # Throw away unstaged changes to a file
+	branches = branch -vv
+	aliases = config --get-regexp ^alias\\.
+
+# Must stay last so local settings win
+[include]
+	path = ~/.gitconfig.local
