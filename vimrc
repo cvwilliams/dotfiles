@@ -68,7 +68,7 @@ set termguicolors             " Enable 24-bit True Color support
 " Wildmenu: Built-in tab autocompletion menu for commands and files
 set wildmenu
 set wildmode=longest:full,full
-set wildignore=*.o,*.obj,*~,*.pyc,*.git,*.hg,*.svn,*/node_modules/*
+set wildignore=*.o,*.obj,*~,*.pyc,*/.git/*,*/.hg/*,*/.svn/*,*/node_modules/*
 
 " ==============================================================================
 " 2. INDENTATION & TABS (Modern Defaults)
@@ -89,6 +89,12 @@ set incsearch                 " Highlight search matches as you type
 set hlsearch                  " Keep search matches highlighted
 set hidden                    " Allow switching buffers without saving first
 set autoread                  " Reload file if changed externally
+" autoread only notices changes when something checks, so check when returning
+" to vim or switching buffers
+augroup autoread_checktime
+  autocmd!
+  autocmd FocusGained,BufEnter * if getcmdwintype() ==# '' | checktime | endif
+augroup END
 
 " Clean backup/undo directories (prevents cluttering working folders with .swp)
 set nobackup
@@ -126,9 +132,9 @@ nnoremap <C-l> <C-w>l
 vnoremap < <gv
 vnoremap > >gv
 
-" Move visual lines (handles long wrapped lines naturally)
-nnoremap j gj
-nnoremap k gk
+" j/k move by screen line when 'wrap' is on; with a count (5j) they move real lines
+nnoremap <expr> j v:count ? 'j' : 'gj'
+nnoremap <expr> k v:count ? 'k' : 'gk'
 
 " --- Neovim default mappings ---
 " Neovim's Ctrl-L (clear search highlight) is omitted: Ctrl-L is window navigation
