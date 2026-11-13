@@ -26,6 +26,12 @@ frameworks: everything is plain config files using what ships with macOS.
 - In macOS Terminal, **switches the Terminal profile to match light/dark mode**
 - Loads `~/.zshrc.local` for machine-specific settings and secrets
 
+**Login environment** (`zprofile`)
+- `PATH` with `~/bin` first, duplicates removed, and Homebrew set up if installed
+- Vim as `EDITOR`/`VISUAL`, and as the man page viewer (`MANPAGER`)
+- Friendlier `less` defaults: smart-case search, colors, exits on short output
+- Loads `~/.zprofile.local` for machine-specific tool integrations
+
 **macOS** (`macos.sh`)
 - Finder, Dock and trackpad preferences applied with `defaults write`
 - A commented-out list of popular extras (faster key repeat, no smart quotes,
@@ -43,12 +49,14 @@ git clone https://github.com/cvwilliams/dotfiles.git ~/Projects/dotfiles
 ~/Projects/dotfiles/install.sh
 ```
 
-`install.sh` symlinks `vimrc` and `zshrc` into your home folder as `~/.vimrc`
-and `~/.zshrc`. Anything already there is renamed to
+`install.sh` symlinks `vimrc`, `zprofile` and `zshrc` into your home folder as
+`~/.vimrc`, `~/.zprofile` and `~/.zshrc`. Anything already there is renamed to
 `<name>.backup-<timestamp>`, never deleted. It is safe to run again.
 
-Because the files are symlinked, editing `~/.vimrc` or `~/.zshrc` edits the copy
-in the repo, ready to commit.
+Because the files are symlinked, editing `~/.zshrc` and the others edits the
+copy in the repo, ready to commit. Installers that append lines to these files
+(many do) also edit the repo, so check `git diff` and move machine-specific
+lines into the `.local` files.
 
 ### macOS preferences
 
@@ -68,15 +76,16 @@ Keyboard and trackpad changes may need a log out to take effect.
 | Vim colors | The `s:palettes` dictionary in section 5 of `vimrc` |
 | Terminal profiles used for light/dark | `TERMINAL_DARK_PROFILE` and `TERMINAL_LIGHT_PROFILE` in `zshrc` (default: Clear Dark / Clear Light) |
 | macOS preferences | Uncomment lines in part 2 of `macos.sh` |
-| Anything for one machine only | Create `~/.zshrc.local`, which is not tracked |
+| Anything for one machine only | Create `~/.zprofile.local` (environment, tool setup) or `~/.zshrc.local` (aliases, secrets). Neither is tracked. |
 
 ## Uninstall
 
 Remove the symlinks and restore a backup if you have one:
 
 ```bash
-rm ~/.vimrc ~/.zshrc
+rm ~/.vimrc ~/.zprofile ~/.zshrc
 mv ~/.vimrc.backup-<timestamp> ~/.vimrc   # if a backup exists
+mv ~/.zprofile.backup-<timestamp> ~/.zprofile
 mv ~/.zshrc.backup-<timestamp> ~/.zshrc
 ```
 

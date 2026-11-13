@@ -181,4 +181,4 @@ fi
 # 7. MACHINE-SPECIFIC SETTINGS (not in the dotfiles repo)
 # ==============================================================================
 # Put secrets, API keys and anything only for this computer in ~/.zshrc.local
-[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+if [[ -f ~/.zshrc.local ]]; then source ~/.zshrc.local; fi  # if/fi, not &&, so a missing file isn't a failure

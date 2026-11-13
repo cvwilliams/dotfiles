@@ -27,6 +27,7 @@ link() {
 }
 
 link vimrc .vimrc
+link zprofile .zprofile
 link zshrc .zshrc
 
 echo
