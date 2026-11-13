@@ -11,8 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Every tracked .sh file, so new scripts are linted automatically
       - name: Lint shell scripts
-        run: shellcheck install.sh macos.sh tests/smoke.sh
+        run: |
+          git ls-files '*.sh'
+          git ls-files -z '*.sh' | xargs -0 shellcheck
 
   macos:
     name: Install and start up on macOS

@@ -138,21 +138,31 @@ bindkey "^[OB" down-line-or-beginning-search
 # profile's palette. Only active in macOS Terminal; other terminals are untouched.
 # If macOS asks whether Terminal may control Terminal, allow it.
 if [[ "$OSTYPE" == darwin* && "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
-  TERMINAL_DARK_PROFILE="Clear Dark"
-  TERMINAL_LIGHT_PROFILE="Clear Light"
-  typeset -g _appearance_checked_at=-999 _appearance_mode=""
+  # Oceanic Next profiles from terminal/ (installed by install.sh). Until they're
+  # installed, Apple's built-in Clear Dark / Clear Light are used instead.
+  TERMINAL_DARK_PROFILE="Oceanic Next Dark"
+  TERMINAL_LIGHT_PROFILE="Oceanic Next Light"
+  typeset -g _appearance_checked_at=-999 _appearance_profile=""
+
+  _terminal_profile_installed() {
+    /usr/libexec/PlistBuddy -c "Print ':Window Settings:$1:name'" \
+      ~/Library/Preferences/com.apple.Terminal.plist >/dev/null 2>&1
+  }
 
   _sync_terminal_appearance() {
     (( SECONDS - _appearance_checked_at < 5 )) && return
     _appearance_checked_at=$SECONDS
 
-    local mode=light
-    [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null)" == Dark ]] && mode=dark
-    [[ $mode == $_appearance_mode ]] && return
-    _appearance_mode=$mode
+    local profile=$TERMINAL_LIGHT_PROFILE fallback="Clear Light"
+    if [[ "$(defaults read -g AppleInterfaceStyle 2>/dev/null)" == Dark ]]; then
+      profile=$TERMINAL_DARK_PROFILE fallback="Clear Dark"
+    fi
+    _terminal_profile_installed "$profile" || profile=$fallback
 
-    local profile=$TERMINAL_LIGHT_PROFILE
-    [[ $mode == dark ]] && profile=$TERMINAL_DARK_PROFILE
+    # Compare the profile, not just the mode, so installing the Oceanic profiles
+    # later is picked up without restarting the shell
+    [[ $profile == $_appearance_profile ]] && return
+    _appearance_profile=$profile
 
     # Run in the background (&!) so the prompt never waits on AppleScript
     osascript - "$profile" >/dev/null 2>&1 <<'APPLESCRIPT' &!
