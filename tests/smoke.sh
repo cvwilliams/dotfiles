@@ -19,6 +19,15 @@ zsh -n "$REPO/aliases.zsh" || fail "aliases.zsh has a syntax error"
 zsh -n "$REPO/functions.zsh" || fail "functions.zsh has a syntax error"
 bash -n "$REPO/install.sh" || fail "install.sh has a syntax error"
 bash -n "$REPO/macos.sh" || fail "macos.sh has a syntax error"
+bash -n "$REPO/terminal/install-profiles.sh" || fail "terminal/install-profiles.sh has a syntax error"
+for profile in "$REPO"/terminal/*.terminal; do
+  plutil -lint -s "$profile" || fail "$(basename "$profile") is not a valid profile"
+  for key in name BackgroundColor TextColor Font ANSIRedColor ANSIBrightWhiteColor; do
+    plutil -extract "$key" raw -o /dev/null "$profile" 2>/dev/null \
+      || plutil -extract "$key" xml1 -o /dev/null "$profile" \
+      || fail "$(basename "$profile") is missing $key"
+  done
+done
 pass "syntax"
 
 # --- install.sh ---------------------------------------------------------------

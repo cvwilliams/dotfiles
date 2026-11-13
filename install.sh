@@ -57,6 +57,14 @@ link vimrc .vimrc
 link zprofile .zprofile
 link zshrc .zshrc
 
+# Terminal.app color profiles (only when run from Terminal itself, since
+# importing opens Terminal windows)
+if [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]]; then
+  "$DOTFILES/terminal/install-profiles.sh"
+else
+  echo "skip    Terminal profiles (run terminal/install-profiles.sh from Terminal.app)"
+fi
+
 echo
 echo "Done. Open a new terminal tab (or run: exec zsh) to load the new shell config."
 echo "macOS preferences are separate: review macos.sh, then run it yourself."
