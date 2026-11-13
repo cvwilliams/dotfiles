@@ -1,13 +1,13 @@
 # zshrc -- minimal, plugin-free zsh config for macOS
-# Sections: 1 History & options, 2 Completion, 3 Prompt, 4 Error handlers,
+# Sections: 1 History & shell options, 2 Completion, 3 Prompt, 4 Error handlers,
 # 5 Keybindings & aliases, 6 Light/dark Terminal profile, 7 Local overrides.
 
 # ==============================================================================
-# 1. ENVIRONMENT & PERFORMANCE TUNING
+# 1. HISTORY & SHELL OPTIONS
 # ==============================================================================
-export HISTFILE="$HOME/.zsh_history"
-export HISTSIZE=50000
-export SAVEHIST=50000
+HISTFILE="$HOME/.zsh_history"   # Shell settings, not exported: other programs don't need them
+HISTSIZE=50000
+SAVEHIST=50000
 
 setopt SHARE_HISTORY          # Share history across sessions
 setopt HIST_EXPIRE_DUPS_FIRST # Delete duplicates when file is full
@@ -30,12 +30,17 @@ SPROMPT="%F{yellow}zsh: correct '%R' to '%r' [nyae]? %f"
 # ==============================================================================
 # 2. BUILT-IN AUTOCOMPLETION
 # ==============================================================================
+# Rebuild the completion cache at most once a day; otherwise load it as-is (-C).
+# The (#q...) glob qualifier needs EXTENDED_GLOB, enabled just for this check.
 autoload -U compinit
-if [[ -n ~/.zcompdump(#qN.mh+24) ]]; then
-  compinit
-else
-  compinit -C
-fi
+() {
+  setopt local_options extended_glob
+  if [[ -n ~/.zcompdump(#qN.mh+24) || ! -f ~/.zcompdump ]]; then
+    compinit
+  else
+    compinit -C
+  fi
+}
 
 zstyle ':completion:*' rehash true
 zstyle ':completion:*' use-cache on
@@ -44,7 +49,7 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:
 zstyle ':completion:*' menu select
 zstyle ':completion:*:*:*:*:descriptions' format '%F{green}-- %d --%f'
 zstyle ':completion:*:*:*:*:warnings' format '%F{red}-- No matches found --%f'
-zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*:default' list-colors ''   # Default file-type colors (macOS ls doesn't set LS_COLORS)
 
 # ==============================================================================
 # 3. MINIMALIST SINGLE-LINE PROMPT & TIMER
@@ -59,11 +64,11 @@ zstyle ':vcs_info:git:*' stagedstr '%F{green}+%f'
 zstyle ':vcs_info:git:*' formats ' %F{magenta}🌿 %b%u%c%f'
 zstyle ':vcs_info:git:*' actionformats ' %F{magenta}🌿 %b|%a%u%c%f'
 
-preexec() {
+_cmd_timer_start() {
   CMD_START_TIME=$SECONDS
 }
 
-precmd() {
+_prompt_precmd() {
   vcs_info
   if [[ -n $CMD_START_TIME ]]; then
     local elapsed=$(( SECONDS - CMD_START_TIME ))
@@ -74,18 +79,26 @@ precmd() {
   fi
 }
 
+# Registered as hooks (not by defining precmd/preexec directly) so other tools'
+# hooks can't silently replace them
+autoload -Uz add-zsh-hook
+add-zsh-hook preexec _cmd_timer_start
+add-zsh-hook precmd _prompt_precmd
+
 setopt PROMPT_SUBST
 
-# Clean single-line layout: ~ (git) ❯
-PROMPT='%F{cyan}%~%f${vcs_info_msg_0_} %F{green}❯%f '
-PROMPT_FAILURE='%F{red}❯%f '
-PROMPT="%(?.${PROMPT}.${PROMPT/❯/${PROMPT_FAILURE}})"
+# Clean single-line layout: ~ (git) ❯   -- the ❯ turns red after a failed command
+PROMPT='%F{cyan}%~%f${vcs_info_msg_0_} %(?.%F{green}.%F{red})❯%f '
 
 # ==============================================================================
 # 4. ERROR HANDLERS & HOOKS
 # ==============================================================================
 command_not_found_handler() {
-  print -P "%F{red}zsh: command not found: %F{yellow}$1%f" >&2
+  # print -P only for the colors; the command name is printed raw (-r) so a
+  # stray % in it isn't treated as prompt formatting
+  print -Pn "%F{red}zsh: command not found: %F{yellow}" >&2
+  print -rn -- "$1" >&2
+  print -P "%f" >&2
   return 127
 }
 
@@ -98,8 +111,12 @@ autoload -U up-line-or-beginning-search
 autoload -U down-line-or-beginning-search
 zle -N up-line-or-beginning-search
 zle -N down-line-or-beginning-search
+# Up/Down search history for lines starting with what's typed. Arrows send
+# ^[[A/^[[B normally and ^[OA/^[OB in "application" mode, so bind both.
 bindkey "^[[A" up-line-or-beginning-search
 bindkey "^[[B" down-line-or-beginning-search
+bindkey "^[OA" up-line-or-beginning-search
+bindkey "^[OB" down-line-or-beginning-search
 
 alias ..="cd .."
 alias ...="cd ../.."
@@ -164,7 +181,6 @@ end run
 APPLESCRIPT
   }
 
-  autoload -Uz add-zsh-hook
   add-zsh-hook precmd _sync_terminal_appearance
 
   # Also check while sitting idle at a prompt. zsh sends itself an ALRM signal

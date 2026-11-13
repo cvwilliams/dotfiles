@@ -19,7 +19,8 @@ if [[ "${1:-}" != "-y" ]]; then
 fi
 
 # Close System Settings so it doesn't overwrite these changes when it quits
-osascript -e 'tell application "System Settings" to quit' 2>/dev/null || true
+# (only if it's running; telling a closed app to quit can launch it first)
+osascript -e 'if application "System Settings" is running then tell application "System Settings" to quit' 2>/dev/null || true
 
 echo "Applying preferences..."
 
