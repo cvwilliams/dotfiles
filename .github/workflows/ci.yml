@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint shell scripts
+        run: shellcheck install.sh macos.sh tests/smoke.sh
+
+  macos:
+    name: Install and start up on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tool versions
+        run: |
+          zsh --version
+          vim --version | head -2
+
+      - name: Smoke tests
+        run: tests/smoke.sh
+
+      # The runner is a throwaway VM, so actually apply the preferences to
+      # catch any defaults command that errors
+      - name: Apply macos.sh
+        run: ./macos.sh -y

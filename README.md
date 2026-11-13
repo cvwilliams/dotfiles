@@ -1,5 +1,7 @@
 # dotfiles
 
+[![CI](https://github.com/cvwilliams/dotfiles/actions/workflows/ci.yml/badge.svg)](https://github.com/cvwilliams/dotfiles/actions/workflows/ci.yml)
+
 A small, dependency-free setup for zsh and Vim on macOS. No plugin managers, no
 frameworks: everything is plain config files using what ships with macOS.
 
@@ -88,6 +90,21 @@ mv ~/.vimrc.backup-<timestamp> ~/.vimrc   # if a backup exists
 mv ~/.zprofile.backup-<timestamp> ~/.zprofile
 mv ~/.zshrc.backup-<timestamp> ~/.zshrc
 ```
+
+## Testing
+
+```bash
+tests/smoke.sh
+```
+
+The smoke tests install everything into a throwaway home folder (your real one
+is untouched), then check that zsh starts with no output and a clean exit
+status, Vim starts with no errors, and `macos.sh` changes nothing without
+confirmation.
+
+GitHub Actions runs these tests on macOS for every push and pull request, along
+with [ShellCheck](https://www.shellcheck.net) on the shell scripts and a full
+run of `macos.sh` on the throwaway runner.
 
 ## Credits
 
