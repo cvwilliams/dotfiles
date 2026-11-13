@@ -1,6 +1,6 @@
 # zshrc -- minimal, plugin-free zsh config for macOS
 # Sections: 1 History & shell options, 2 Completion, 3 Prompt, 4 Error handlers,
-# 5 Keybindings & aliases, 6 Light/dark Terminal profile, 7 Local overrides.
+# 5 Keybindings, functions & aliases, 6 Light/dark Terminal profile, 7 Local overrides.
 
 # ==============================================================================
 # 1. HISTORY & SHELL OPTIONS
@@ -17,6 +17,7 @@ setopt HIST_FIND_NO_DUPS      # Filter duplicates in history search
 setopt HIST_IGNORE_SPACE      # Ignore commands starting with space
 setopt HIST_SAVE_NO_DUPS      # Don't write duplicates to file
 setopt HIST_REDUCE_BLANKS     # Trim blank spaces
+HISTORY_IGNORE='(ls|ll|la|cd|pwd|exit|clear|reload)'  # Don't save these trivial commands
 
 setopt AUTO_CD                # Type directory name to cd into it
 setopt AUTO_PUSHD             # Push directory stack on cd
@@ -103,7 +104,7 @@ command_not_found_handler() {
 }
 
 # ==============================================================================
-# 5. KEYBINDINGS & ALIASES
+# 5. KEYBINDINGS, FUNCTIONS & ALIASES
 # ==============================================================================
 bindkey -e
 
@@ -118,25 +119,15 @@ bindkey "^[[B" down-line-or-beginning-search
 bindkey "^[OA" up-line-or-beginning-search
 bindkey "^[OB" down-line-or-beginning-search
 
-alias ..="cd .."
-alias ...="cd ../.."
-alias ....="cd ../../.."
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  alias ls="ls -G"
-  alias ll="ls -lhG"
-  alias la="ls -lahG"
-else
-  alias ls="ls --color=auto"
-  alias ll="ls -lh --color=auto"
-  alias la="ls -lah --color=auto"
-fi
-
-alias cp="cp -i"
-alias mv="mv -i"
-alias rm="rm -i"
-alias grep="grep --color=auto"
-alias reload="exec zsh"
+# Functions and aliases live in their own files next to this one in the dotfiles
+# repo. ${(%):-%x} is this file's path; :A follows the ~/.zshrc symlink to the
+# repo. Functions load first so aliases can't rewrite the commands inside them.
+() {
+  local dir=${${(%):-%x}:A:h} f
+  for f in "$dir"/functions.zsh "$dir"/aliases.zsh; do
+    if [[ -f "$f" ]]; then source "$f"; fi
+  done
+}
 
 # ==============================================================================
 # 6. FOLLOW MACOS LIGHT/DARK MODE (switches the Terminal.app profile)

@@ -28,6 +28,33 @@ frameworks: everything is plain config files using what ships with macOS.
 - In macOS Terminal, **switches the Terminal profile to match light/dark mode**
 - Loads `~/.zshrc.local` for machine-specific settings and secrets
 
+**Functions** (`functions.zsh`)
+
+| Command | What it does |
+|---|---|
+| `mkcd <dir>` | Create a folder (and parents) and `cd` into it |
+| `up [n]` | Go up `n` folders: `up 3` = `cd ../../..` |
+| `cdf` | `cd` to the folder open in the front Finder window |
+| `ff <text>` | Find files by name, case-insensitive, skipping `.git` |
+| `bak <file>` | Timestamped copy: `notes.txt.bak-20260101-120000` |
+| `extract <archive>` | Unpack tar, gz, bz2, xz, zip or 7z |
+| `ql <file>` | Quick Look preview from the terminal |
+| `gclone <url>` | `git clone`, then `cd` into it |
+| `serve [port]` | Share this folder at `http://localhost:8000` (this Mac only) |
+| `port <n>` | What's listening on a TCP port |
+| `localip` | This Mac's address on the local network |
+
+**Aliases** (`aliases.zsh`)
+- Navigation: `..`, `...`, `....`, `dotfiles`
+- Files: colored `ls`/`ll`/`la`, `mkdir -p`, human-readable `df`/`du`, and
+  `cp`/`mv`/`rm` that ask before overwriting or deleting
+- Shell: `v` (vim), `zshrc`, `vimrc`, `reload`, `path` (one entry per line)
+- macOS: `o` (open in Finder), `cpwd` (copy path), `awake`, `flushdns`,
+  `showhidden`/`hidehidden`
+- zsh global aliases that work anywhere in a command: `G` (`| grep -i`),
+  `L` (`| less`), `C` (`| pbcopy`), `N` (silence output). For example,
+  `history G docker` or `cat notes.txt C`
+
 **Login environment** (`zprofile`)
 - `PATH` with `~/bin` first, duplicates removed, and Homebrew set up if installed
 - Vim as `EDITOR`/`VISUAL`, and as the man page viewer (`MANPAGER`)
@@ -77,6 +104,7 @@ Keyboard and trackpad changes may need a log out to take effect.
 |---|---|
 | Vim colors | The `s:palettes` dictionary in section 5 of `vimrc` |
 | Terminal profiles used for light/dark | `TERMINAL_DARK_PROFILE` and `TERMINAL_LIGHT_PROFILE` in `zshrc` (default: Clear Dark / Clear Light) |
+| Aliases and functions | `aliases.zsh` and `functions.zsh`, loaded automatically by `zshrc` |
 | macOS preferences | Uncomment lines in part 2 of `macos.sh` |
 | Anything for one machine only | Create `~/.zprofile.local` (environment, tool setup) or `~/.zshrc.local` (aliases, secrets). Neither is tracked. |
 

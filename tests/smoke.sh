@@ -15,6 +15,8 @@ fail() { echo "FAIL  $*" >&2; exit 1; }
 # --- Syntax -------------------------------------------------------------------
 zsh -n "$REPO/zshrc" || fail "zshrc has a syntax error"
 zsh -n "$REPO/zprofile" || fail "zprofile has a syntax error"
+zsh -n "$REPO/aliases.zsh" || fail "aliases.zsh has a syntax error"
+zsh -n "$REPO/functions.zsh" || fail "functions.zsh has a syntax error"
 bash -n "$REPO/install.sh" || fail "install.sh has a syntax error"
 bash -n "$REPO/macos.sh" || fail "macos.sh has a syntax error"
 pass "syntax"
@@ -36,6 +38,15 @@ out="$(HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c 'print -r -- "status=
 [[ "$out" == "status=0" ]] || fail "zsh startup printed or failed:
 $out"
 pass "zsh starts cleanly"
+
+# aliases.zsh and functions.zsh are found through the ~/.zshrc symlink
+# (Global aliases like G expand anywhere on a command line, so check them via
+# the $galiases table rather than by name.)
+out="$(HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c 'whence -w mkcd extract reload; print "global G: ${+galiases[G]}"' </dev/null 2>&1)"
+[[ "$out" == *"mkcd: function"* && "$out" == *"extract: function"* && "$out" == *"reload: alias"* && "$out" == *"global G: 1"* ]] \
+  || fail "functions or aliases didn't load:
+$out"
+pass "functions and aliases load"
 
 # --- Vim ----------------------------------------------------------------------
 # Vim needs a terminal to load plugins normally, so run it under script(1)
