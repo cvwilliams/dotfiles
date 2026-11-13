@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/cvwilliams/dotfiles/actions/workflows/ci.yml/badge.svg)](https://github.com/cvwilliams/dotfiles/actions/workflows/ci.yml)
 
-A small, dependency-free setup for zsh and Vim on macOS. No plugin managers, no
+A small, dependency-free setup for zsh, Vim and git on macOS. No plugin managers, no
 frameworks: everything is plain config files using what ships with macOS.
 
 ## Features
@@ -61,6 +61,18 @@ frameworks: everything is plain config files using what ships with macOS.
 - Friendlier `less` defaults: smart-case search, colors, exits on short output
 - Loads `~/.zprofile.local` for machine-specific tool integrations
 
+**git** (`gitconfig`, `gitignore_global`)
+- `main` as the default branch, vim as the editor
+- Safer defaults: fast-forward-only pulls, auto-pruned remote branches, first
+  push of a new branch sets up tracking automatically
+- Easier-to-read diffs and conflicts: histogram diffs, moved lines highlighted,
+  `zdiff3` conflict markers, remembered conflict resolutions (`rerere`)
+- Aliases: `git st`, `git lg` (graph log), `git last`, `git undo` (undo last
+  commit, keep changes), `git amend`, `git unstage`, `git discard`,
+  `git branches`, `git aliases`
+- A global ignore list for macOS clutter, Vim swap files and `.env` files
+- Your name and email stay in `~/.gitconfig.local`, outside the repo
+
 **macOS** (`macos.sh`)
 - Finder, Dock and trackpad preferences applied with `defaults write`
 - A commented-out list of popular extras (faster key repeat, no smart quotes,
@@ -78,9 +90,18 @@ git clone https://github.com/cvwilliams/dotfiles.git ~/Projects/dotfiles
 ~/Projects/dotfiles/install.sh
 ```
 
-`install.sh` symlinks `vimrc`, `zprofile` and `zshrc` into your home folder as
-`~/.vimrc`, `~/.zprofile` and `~/.zshrc`. Anything already there is renamed to
-`<name>.backup-<timestamp>`, never deleted. It is safe to run again.
+`install.sh` symlinks `gitconfig`, `gitignore_global`, `vimrc`, `zprofile` and
+`zshrc` into your home folder as dotfiles (`~/.gitconfig` and so on). Anything
+already there is renamed to `<name>.backup-<timestamp>`, never deleted. It is
+safe to run again.
+
+On first install, the name and email from your existing `~/.gitconfig` are
+moved into `~/.gitconfig.local`. On a new machine, set them there:
+
+```bash
+git config --file ~/.gitconfig.local user.name "Your Name"
+git config --file ~/.gitconfig.local user.email "you@example.com"
+```
 
 Because the files are symlinked, editing `~/.zshrc` and the others edits the
 copy in the repo, ready to commit. Installers that append lines to these files
@@ -106,15 +127,17 @@ Keyboard and trackpad changes may need a log out to take effect.
 | Terminal profiles used for light/dark | `TERMINAL_DARK_PROFILE` and `TERMINAL_LIGHT_PROFILE` in `zshrc` (default: Clear Dark / Clear Light) |
 | Aliases and functions | `aliases.zsh` and `functions.zsh`, loaded automatically by `zshrc` |
 | macOS preferences | Uncomment lines in part 2 of `macos.sh` |
-| Anything for one machine only | Create `~/.zprofile.local` (environment, tool setup) or `~/.zshrc.local` (aliases, secrets). Neither is tracked. |
+| Git identity, signing keys, work-only settings | `~/.gitconfig.local`, which is not tracked |
+| Anything else for one machine only | Create `~/.zprofile.local` (environment, tool setup) or `~/.zshrc.local` (aliases, secrets). Neither is tracked. |
 
 ## Uninstall
 
 Remove the symlinks and restore a backup if you have one:
 
 ```bash
-rm ~/.vimrc ~/.zprofile ~/.zshrc
-mv ~/.vimrc.backup-<timestamp> ~/.vimrc   # if a backup exists
+rm ~/.gitconfig ~/.gitignore_global ~/.vimrc ~/.zprofile ~/.zshrc
+mv ~/.gitconfig.backup-<timestamp> ~/.gitconfig   # if a backup exists
+mv ~/.vimrc.backup-<timestamp> ~/.vimrc
 mv ~/.zprofile.backup-<timestamp> ~/.zprofile
 mv ~/.zshrc.backup-<timestamp> ~/.zshrc
 ```

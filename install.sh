@@ -26,6 +26,33 @@ link() {
   echo "linked  ~/$2 -> $src"
 }
 
+# Git identity lives in ~/.gitconfig.local, not the repo. On first install,
+# carry over the name and email from an existing ~/.gitconfig before it's
+# replaced by the link.
+setup_git_identity() {
+  local local_cfg="$HOME/.gitconfig.local" key value
+  [[ -e "$local_cfg" ]] && return
+
+  if [[ -f "$HOME/.gitconfig" && ! -L "$HOME/.gitconfig" ]]; then
+    for key in user.name user.email; do
+      if value="$(git config --file "$HOME/.gitconfig" --get "$key")"; then
+        git config --file "$local_cfg" "$key" "$value"
+      fi
+    done
+  fi
+
+  if [[ -e "$local_cfg" ]]; then
+    echo "moved   git name/email -> ~/.gitconfig.local"
+  else
+    echo "note    set your git identity in ~/.gitconfig.local:"
+    echo "          git config --file ~/.gitconfig.local user.name \"Your Name\""
+    echo "          git config --file ~/.gitconfig.local user.email \"you@example.com\""
+  fi
+}
+
+setup_git_identity
+link gitconfig .gitconfig
+link gitignore_global .gitignore_global
 link vimrc .vimrc
 link zprofile .zprofile
 link zshrc .zshrc

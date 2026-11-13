@@ -1,0 +1,22 @@
+# gitignore_global -- ignored in every repo (linked to ~/.gitignore_global)
+# Only things that never belong in any project: OS clutter, editor temp files
+# and local secrets. Project-specific ignores belong in each repo's .gitignore.
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Vim
+*.swp
+*.swo
+*~
+Session.vim
+
+# Local secrets and environment files
+.env
+.env.local
+*.local.env
