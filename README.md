@@ -91,9 +91,17 @@ shows the version that matches your theme.*
 - Your name and email stay in `~/.gitconfig.local`, outside the repo
 
 **macOS** (`macos.sh`)
-- Finder, Dock and trackpad preferences applied with `defaults write`
-- A commented-out list of popular extras (faster key repeat, no smart quotes,
-  screenshot folder and more) to enable as you like
+- Preferences applied with `defaults write`, all in one readable script:
+  - **Keyboard:** fast key repeat, holding a key repeats it (no accent
+    popup), Tab reaches every control in dialogs
+  - **Text:** straight quotes and dashes (safe for code), no autocorrect
+  - **Finder:** list view, path and status bars, folders first, hidden files
+    and `~/Library` visible, no warning when changing extensions
+  - **Dock:** auto-hides and appears instantly, no recent apps, Spaces stay
+    in a fixed order
+  - **Also:** tap to click and three-finger drag, expanded Save/Print
+    dialogs, screenshots saved to `~/Pictures/Screenshots` without shadows,
+    plain-text TextEdit
 
 ## Requirements
 
@@ -173,7 +181,7 @@ Keyboard and trackpad changes may need a log out to take effect.
 | Terminal colors | The `PROFILES` table in `terminal/generate-profiles.js`, then run `osascript -l JavaScript terminal/generate-profiles.js terminal`. To reinstall, delete the old profiles in Terminal > Settings > Profiles and run `terminal/install-profiles.sh`. |
 | Terminal profiles used for light/dark | `TERMINAL_DARK_PROFILE` and `TERMINAL_LIGHT_PROFILE` in `zshrc` |
 | Aliases and functions | `aliases.zsh` and `functions.zsh`, loaded automatically by `zshrc` |
-| macOS preferences | Uncomment lines in part 2 of `macos.sh` |
+| macOS preferences | `macos.sh`: change or remove lines in part 1, or uncomment the extras in part 2 |
 | Git identity, signing keys, work-only settings | `~/.gitconfig.local`, which is not tracked |
 | Anything else for one machine only | Create `~/.zprofile.local` (environment, tool setup) or `~/.zshrc.local` (aliases, secrets). Neither is tracked. |
 
