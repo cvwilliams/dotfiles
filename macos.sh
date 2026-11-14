@@ -90,7 +90,11 @@ defaults write com.apple.screencapture type -string "png"
 defaults write com.apple.screencapture disable-shadow -bool true  # No drop shadow on window screenshots
 
 # --- TextEdit -----------------------------------------------------------------
-defaults write com.apple.TextEdit RichText -int 0                 # New documents are plain text
+# TextEdit is sandboxed, and macOS blocks writing its settings unless your
+# terminal has Full Disk Access, so a failure here is reported, not fatal.
+if ! defaults write com.apple.TextEdit RichText -int 0 2>/dev/null; then  # New documents are plain text
+  echo "note    skipped TextEdit plain text (blocked by macOS). Set it in TextEdit > Settings > Format: Plain Text."
+fi
 
 # ==============================================================================
 # PART 2: EXTRAS LEFT OFF (uncomment to enable)
