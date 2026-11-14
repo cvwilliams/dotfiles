@@ -8,6 +8,9 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_HOME="$(mktemp -d)"
 trap 'rm -rf "$TEST_HOME"' EXIT
 export TERM="${TERM:-xterm-256color}"
+# Don't let the test installs import Terminal profiles (that opens real
+# Terminal windows) when the tests themselves are run from Terminal.app
+unset TERM_PROGRAM
 
 pass() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
@@ -19,6 +22,7 @@ zsh -n "$REPO/aliases.zsh" || fail "aliases.zsh has a syntax error"
 zsh -n "$REPO/functions.zsh" || fail "functions.zsh has a syntax error"
 bash -n "$REPO/install.sh" || fail "install.sh has a syntax error"
 bash -n "$REPO/macos.sh" || fail "macos.sh has a syntax error"
+bash -n "$REPO/bootstrap.sh" || fail "bootstrap.sh has a syntax error"
 bash -n "$REPO/terminal/install-profiles.sh" || fail "terminal/install-profiles.sh has a syntax error"
 for profile in "$REPO"/terminal/*.terminal; do
   plutil -lint -s "$profile" || fail "$(basename "$profile") is not a valid profile"
@@ -89,5 +93,20 @@ pass "vim starts cleanly"
 # --- macos.sh -----------------------------------------------------------------
 "$REPO/macos.sh" </dev/null | grep -q 'Nothing changed' || fail "macos.sh changed things without confirmation"
 pass "macos.sh asks before changing anything"
+
+# --- bootstrap.sh -------------------------------------------------------------
+# Clone this repo (its committed state) into a second throwaway home, as on a
+# new Mac, then run it again to check that updating an existing clone works.
+BOOT_HOME="$TEST_HOME/boot"
+mkdir -p "$BOOT_HOME"
+for run in first second; do
+  HOME="$BOOT_HOME" DOTFILES_REPO="$REPO" DOTFILES_SKIP_MACOS=1 \
+    bash "$REPO/bootstrap.sh" </dev/null >"$TEST_HOME/boot-$run.log" 2>&1 \
+    || fail "bootstrap.sh ($run run) failed:
+$(cat "$TEST_HOME/boot-$run.log")"
+done
+[[ "$(readlink "$BOOT_HOME/.zshrc")" == "$BOOT_HOME/Projects/dotfiles/zshrc" ]] \
+  || fail "bootstrap.sh didn't clone to ~/Projects/dotfiles and link from there"
+pass "bootstrap.sh clones, links and can re-run"
 
 echo "All smoke tests passed."

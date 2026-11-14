@@ -174,13 +174,15 @@ let s:palettes = {
       \   'comment': '#65737E', 'fg_dim': '#A7ADBA', 'fg': '#C0C5CE', 'strong': '#D8DEE9',
       \   'red': '#EC5F67', 'orange': '#F99157', 'yellow': '#FAC863', 'green': '#99C794',
       \   'cyan': '#5FB3B3', 'blue': '#6699CC', 'purple': '#C594C5', 'brown': '#AB7967',
-      \   'search': '#FAC863', 'cursearch': '#F99157', 'on_search': '#1B2B34' },
+      \   'search': '#FAC863', 'cursearch': '#F99157', 'on_search': '#1B2B34',
+      \   'ansi_black': '#343D46', 'ansi_white': '#C0C5CE', 'ansi_bright_white': '#D8DEE9' },
       \ 'light': {
       \   'bg': '#EEF1F5', 'bg_alt': '#D8DEE7', 'sel': '#C9D7E8', 'border': '#A9B3BF',
       \   'comment': '#5E6B76', 'fg_dim': '#4F5B66', 'fg': '#2E3A44', 'strong': '#1B2B34',
       \   'red': '#BF3740', 'orange': '#AE4F17', 'yellow': '#856400', 'green': '#3B7536',
       \   'cyan': '#1C7070', 'blue': '#2F62A0', 'purple': '#8A4B8A', 'brown': '#7D5040',
-      \   'search': '#F7D987', 'cursearch': '#F4AE80', 'on_search': '#1B2B34' },
+      \   'search': '#F7D987', 'cursearch': '#F4AE80', 'on_search': '#1B2B34',
+      \   'ansi_black': '#343D46', 'ansi_white': '#C0C5CE', 'ansi_bright_white': '#D8DEE7' },
       \ }
 
 " s:Hi(group, fg, bg, attr) -- '' leaves fg/bg unset, attr defaults to NONE
@@ -195,6 +197,12 @@ endfunction
 " Apply the palette that matches the current 'background'
 function! s:ApplyColors() abort
   let p = s:palettes[&background ==# 'light' ? 'light' : 'dark']
+
+  " The 16 colors for :terminal windows, matching the Terminal.app profiles in
+  " terminal/ (with termguicolors, Vim otherwise uses its own defaults)
+  let g:terminal_ansi_colors = [
+        \ p.ansi_black, p.red, p.green, p.yellow, p.blue, p.purple, p.cyan, p.ansi_white,
+        \ p.comment, p.red, p.green, p.yellow, p.blue, p.purple, p.cyan, p.ansi_bright_white]
   highlight clear
   if exists('syntax_on') | syntax reset | endif
 
@@ -208,6 +216,8 @@ function! s:ApplyColors() abort
   call s:Hi('VertSplit',    p.border,  p.bg)
   call s:Hi('StatusLine',   p.strong,  p.bg_alt)
   call s:Hi('StatusLineNC', p.comment, p.bg_alt)
+  call s:Hi('StatusLineTerm',   p.strong,  p.bg_alt)   " :terminal windows
+  call s:Hi('StatusLineTermNC', p.comment, p.bg_alt)
   call s:Hi('TabLine',      p.comment, p.bg_alt)
   call s:Hi('TabLineFill',  '',        p.bg_alt)
   call s:Hi('TabLineSel',   p.strong,  p.bg, 'bold')

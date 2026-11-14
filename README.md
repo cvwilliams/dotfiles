@@ -5,6 +5,15 @@
 A small, dependency-free setup for zsh, Vim and git on macOS. No plugin managers, no
 frameworks: everything is plain config files using what ships with macOS.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.jpg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.jpg">
+  <img alt="Vim editing functions.zsh with the Oceanic Next colorscheme, above a shell showing the git-aware prompt" src="docs/screenshot-dark.jpg">
+</picture>
+
+*Vim and the shell in Terminal.app, following macOS light/dark mode. GitHub
+shows the version that matches your theme.*
+
 ## Features
 
 **Vim** (`vimrc`)
@@ -90,8 +99,24 @@ frameworks: everything is plain config files using what ships with macOS.
 
 - macOS with zsh (the default shell)
 - Vim 9.1 or later (the version bundled with current macOS)
+- Apple's Command Line Tools for `git` (and `python3`, used by `serve`).
+  macOS offers to install them the first time you run either, and
+  `bootstrap.sh` installs them for you
 
 ## Install
+
+On a new Mac, one command does everything:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cvwilliams/dotfiles/main/bootstrap.sh | bash
+```
+
+[`bootstrap.sh`](bootstrap.sh) installs Apple's Command Line Tools if they're
+missing (they provide git), clones this repo to `~/Projects/dotfiles` (or
+updates it), runs `install.sh`, and offers to run `macos.sh`. Nothing else is
+downloaded. Set `DOTFILES_DIR` to clone somewhere else.
+
+Or step by step:
 
 ```bash
 git clone https://github.com/cvwilliams/dotfiles.git ~/Projects/dotfiles
@@ -172,8 +197,8 @@ tests/smoke.sh
 
 The smoke tests install everything into a throwaway home folder (your real one
 is untouched), then check that zsh starts with no output and a clean exit
-status, Vim starts with no errors, and `macos.sh` changes nothing without
-confirmation.
+status, Vim starts with no errors, `macos.sh` changes nothing without
+confirmation, and `bootstrap.sh` can clone and set up a fresh home folder.
 
 GitHub Actions runs these tests on macOS for every push and pull request, along
 with [ShellCheck](https://www.shellcheck.net) on the shell scripts and a full
