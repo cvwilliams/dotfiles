@@ -42,7 +42,11 @@ main() {
   # --- Clone or update ------------------------------------------------------
   if [[ -d "$dir/.git" ]]; then
     say "Updating $dir"
-    git -C "$dir" pull --ff-only
+    if git -C "$dir" symbolic-ref -q HEAD >/dev/null; then
+      git -C "$dir" pull --ff-only
+    else
+      echo "Not on a branch (detached HEAD), so leaving it as it is."
+    fi
   elif [[ -e "$dir" ]]; then
     echo "$dir already exists and isn't a git repo. Move it or set DOTFILES_DIR." >&2
     exit 1
