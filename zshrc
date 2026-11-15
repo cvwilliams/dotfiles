@@ -74,7 +74,12 @@ _prompt_precmd() {
   if [[ -n $CMD_START_TIME ]]; then
     local elapsed=$(( SECONDS - CMD_START_TIME ))
     if (( elapsed >= 3 )); then
-      print -P "%F{yellow}⏱️  ${elapsed}s%f"
+      # 125 seconds shows as "2m 5s", not "125s"
+      local h=$(( elapsed / 3600 )) m=$(( elapsed % 3600 / 60 )) s=$(( elapsed % 60 )) dur
+      if (( h > 0 )); then dur="${h}h ${m}m ${s}s"
+      elif (( m > 0 )); then dur="${m}m ${s}s"
+      else dur="${s}s"; fi
+      print -P "%F{yellow}⏱️  ${dur}%f"
     fi
     unset CMD_START_TIME
   fi
@@ -86,10 +91,24 @@ autoload -Uz add-zsh-hook
 add-zsh-hook preexec _cmd_timer_start
 add-zsh-hook precmd _prompt_precmd
 
+# Extra context shown after the directory, computed once per prompt rather than
+# on every redraw. Each piece appears only when it applies.
+typeset -g _prompt_extra_msg=""
+_prompt_extra() {
+  local extra=""
+  [[ -n $VIRTUAL_ENV ]]    && extra+=" %F{blue}(${VIRTUAL_ENV:t})%f"   # Active Python venv
+  [[ -n $SSH_CONNECTION ]] && extra+=" %F{yellow}%n@%m%f"             # user@host, only over SSH
+  (( ${#jobstates} ))      && extra+=" %F{yellow}⚙${#jobstates}%f"     # Background/suspended jobs
+  [[ -w $PWD ]]            || extra+=" %F{red}🔒%f"                    # Folder you can't write to
+  _prompt_extra_msg=$extra
+}
+add-zsh-hook precmd _prompt_extra
+
 setopt PROMPT_SUBST
 
-# Clean single-line layout: ~ (git) ❯   -- the ❯ turns red after a failed command
-PROMPT='%F{cyan}%~%f${vcs_info_msg_0_} %(?.%F{green}.%F{red})❯%f '
+# Clean single-line layout: ~ (git) ❯   -- the ❯ turns red after a failed command.
+# Long paths shorten to …/last/three. A failed command shows its exit code (✘ 127).
+PROMPT='%F{cyan}%(4~|…/%3~|%~)%f${vcs_info_msg_0_}${_prompt_extra_msg} %(?..%F{red}✘%? %f)%(?.%F{green}.%F{red})❯%f '
 
 # ==============================================================================
 # 4. ERROR HANDLERS & HOOKS
