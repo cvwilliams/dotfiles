@@ -138,6 +138,85 @@ bindkey "^[[B" down-line-or-beginning-search
 bindkey "^[OA" up-line-or-beginning-search
 bindkey "^[OB" down-line-or-beginning-search
 
+# ------------------------------------------------------------------------------
+# Command-line syntax coloring, as you type (built in, no plugin needed)
+# zsh calls zle-line-pre-redraw before each redraw; we fill region_highlight with
+# color ranges. Ranges are 0-based, with the end position not included.
+#   command word  green if it runs, red if not   (set first word after ; | && etc.)
+#   'strings'     yellow      -options     cyan      $variables   magenta
+#   # comments    grey        | & ; operators  bold
+# ------------------------------------------------------------------------------
+_highlight_line() {
+  region_highlight=()
+  local -i i=1 n=${#BUFFER} start
+  local ch word q expect_cmd=1
+  local -a reserved=(if then else elif fi for while until do done case esac
+                     function select in time coproc)
+  while (( i <= n )); do
+    ch=$BUFFER[i]
+    if [[ $ch == [[:space:]] ]]; then (( i++ )); continue; fi
+    start=$i
+
+    # Comment: # at the start of a word runs to the end of the line
+    if [[ $ch == '#' ]]; then
+      region_highlight+=("$((start-1)) $n fg=8")
+      break
+    fi
+
+    # Quoted string: up to the matching quote (or end of line if unclosed)
+    if [[ $ch == [\'\"] ]]; then
+      q=$ch; (( i++ ))
+      while (( i <= n )) && [[ $BUFFER[i] != $q ]]; do (( i++ )); done
+      (( i++ ))
+      region_highlight+=("$((start-1)) $((i-1)) fg=yellow")
+      expect_cmd=0
+      continue
+    fi
+
+    # Operators: ; | & and runs of them (||, &&, ;;)
+    if [[ $ch == [\;\|\&] ]]; then
+      while (( i <= n )) && [[ $BUFFER[i] == [\;\|\&] ]]; do (( i++ )); done
+      region_highlight+=("$((start-1)) $((i-1)) bold")
+      expect_cmd=1
+      continue
+    fi
+
+    # Bare word: runs until a space, quote or operator
+    while (( i <= n )) && [[ $BUFFER[i] != [[:space:]] && $BUFFER[i] != [\'\"\;\|\&] ]]; do
+      (( i++ ))
+    done
+    word=$BUFFER[start,i-1]
+
+    if (( expect_cmd )) && [[ $word != [A-Za-z_]*=* ]]; then
+      case $word in
+        # Wrappers run another command next, so the next word is still a command
+        sudo|nohup|builtin|command|exec|noglob)
+          region_highlight+=("$((start-1)) $((i-1)) fg=green")
+          expect_cmd=1
+          ;;
+        *)
+          if (( ${+commands[$word]} || ${+aliases[$word]} || ${+functions[$word]} \
+                || ${+builtins[$word]} || ${reserved[(Ie)$word]} )); then
+            region_highlight+=("$((start-1)) $((i-1)) fg=green")
+          else
+            region_highlight+=("$((start-1)) $((i-1)) fg=red")
+          fi
+          # Keywords like if/then/do are followed by a command; for/case/fi are not
+          expect_cmd=0
+          case $word in
+            if|then|else|elif|do|while|until|time|'!') expect_cmd=1 ;;
+          esac
+          ;;
+      esac
+    elif [[ $word == -* ]]; then
+      region_highlight+=("$((start-1)) $((i-1)) fg=cyan")
+    elif [[ $word == *\$* ]]; then
+      region_highlight+=("$((start-1)) $((i-1)) fg=magenta")
+    fi
+  done
+}
+zle -N zle-line-pre-redraw _highlight_line
+
 # Functions and aliases live in their own files next to this one in the dotfiles
 # repo. ${(%):-%x} is this file's path; :A follows the ~/.zshrc symlink to the
 # repo. Functions load first so aliases can't rewrite the commands inside them.
