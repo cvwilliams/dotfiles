@@ -26,6 +26,11 @@ export PAGER=less
 export LESS='-iRFX'           # Smart-case search, keep colors, quit if one screen, don't clear
 export MANPAGER='vim +MANPAGER --not-a-term -'  # Read man pages in vim
 export CLICOLOR=1             # Colored ls output
+# macOS ls palette (BSD ls ignores LS_COLORS). Each letter pair is one file type:
+# directories, links, sockets, pipes, executables, then the defaults for the rest.
+# Uppercase is bold: directories bold blue, links bold magenta, sockets bold green,
+# pipes bold yellow, executables green. Linux ls ignores this variable.
+export LSCOLORS='ExFxCxDxcxegedabagacad'
 export LANG=en_US.UTF-8
 
 # ==============================================================================
