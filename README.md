@@ -34,13 +34,14 @@ shows the version that matches your theme.*
 - A one-line prompt that shows only what applies right now:
 
   ```
-  …/Projects/dotfiles 🌿 main*+ (venv) ⚙1 🔒 ✘ 127 ❯
+  …/Projects/dotfiles 🌿 main*+ ↑2↓1 (venv) ⚙1 🔒 ✘ 127 ❯
   ```
 
   | Part | Meaning |
   |---|---|
   | `…/Projects/dotfiles` | Current folder, shortened to the last three parts |
-  | `🌿 main*+` | Git branch; `*` unstaged and `+` staged changes |
+  | `🌿 main*+` | Git branch; `*` unstaged and `+` staged changes. During a merge, rebase, cherry-pick, revert or bisect it shows that too (`main\|merge`) |
+  | `↑2↓1` | Commits ahead of and behind the upstream branch |
   | `(venv)` | Active Python virtual environment |
   | `user@host` | Shown only when connected over SSH |
   | `⚙1` | Number of background or suspended jobs |
@@ -226,6 +227,8 @@ tests/smoke.sh
 The smoke tests install everything into a throwaway home folder (your real one
 is untouched), then check that zsh starts with no output and a clean exit
 status, the as-you-type highlighter colors 20 sample command lines correctly,
+the git part of the prompt is right in 14 situations (changes, ahead/behind,
+detached, merge and rebase conflicts),
 Vim starts with no errors, `macos.sh` changes nothing without confirmation, and
 `bootstrap.sh` can clone and set up a fresh home folder.
 
