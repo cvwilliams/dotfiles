@@ -78,6 +78,12 @@ out="$(cd "$REPO" && HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c "source
 $out"
 pass "command-line highlighter"
 
+# The git part of the prompt: branch, */+ markers, ahead/behind, merges (tests/prompt.zsh)
+out="$(HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c "source '$REPO/tests/prompt.zsh'" </dev/null 2>&1)" \
+  || fail "git prompt:
+$out"
+pass "git prompt"
+
 # --- Vim ----------------------------------------------------------------------
 # Vim needs a terminal to load plugins normally, so run it under script(1)
 # and record any error messages to a file.

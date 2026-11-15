@@ -41,6 +41,11 @@ autoload -U compinit
   else
     compinit -C
   fi
+  # Keep a compiled copy of the cache, which zsh loads faster; recompile only
+  # when the cache has changed, in the background so startup doesn't wait
+  if [[ ~/.zcompdump -nt ~/.zcompdump.zwc || ! -s ~/.zcompdump.zwc ]]; then
+    zcompile ~/.zcompdump &!
+  fi
 }
 
 zstyle ':completion:*' rehash true
@@ -55,22 +60,84 @@ zstyle ':completion:*:default' list-colors ''   # Default file-type colors (macO
 # ==============================================================================
 # 3. MINIMALIST SINGLE-LINE PROMPT & TIMER
 # ==============================================================================
-autoload -Uz vcs_info
 autoload -U colors && colors
 
-zstyle ':vcs_info:git:*' enable git
-zstyle ':vcs_info:git:*' check-for-changes true
-zstyle ':vcs_info:git:*' unstagedstr '%F{red}*%f'
-zstyle ':vcs_info:git:*' stagedstr '%F{green}+%f'
-zstyle ':vcs_info:git:*' formats ' %F{magenta}🌿 %b%u%c%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{magenta}🌿 %b|%a%u%c%f'
+# --- Git segment: 🌿 branch|action, * unstaged, + staged, ↑ahead ↓behind --------
+# One `git status` call per prompt (about 10 ms), instead of zsh's vcs_info,
+# which runs several git commands (about 60 ms). Outside a repo no git command
+# runs at all, because the .git folder is found by walking up from $PWD.
+typeset -g _prompt_git_msg=""
+_prompt_git() {
+  _prompt_git_msg=""
+
+  # Find the .git folder (or, in a worktree/submodule, the .git file pointing to it)
+  local dir=$PWD gitdir=""
+  while :; do
+    if [[ -d $dir/.git ]]; then
+      gitdir=$dir/.git; break
+    elif [[ -f $dir/.git ]]; then
+      gitdir=$(<$dir/.git); gitdir=${gitdir#gitdir: }
+      [[ $gitdir == /* ]] || gitdir=$dir/$gitdir
+      break
+    fi
+    [[ $dir == / ]] && return
+    dir=${dir:h}
+  done
+
+  # --porcelain=v2 gives branch, upstream ahead/behind and per-file states in
+  # one call. GIT_OPTIONAL_LOCKS=0 keeps it from locking the index while other
+  # git commands run. Untracked files aren't shown, so git skips looking for them.
+  local -a lines
+  lines=("${(@f)$(GIT_OPTIONAL_LOCKS=0 git status --porcelain=v2 --branch \
+                  --untracked-files=no 2>/dev/null)}") || return
+
+  local line oid="" branch="" staged="" unstaged="" action="" ab=""
+  local -i ahead=0 behind=0
+  for line in $lines; do
+    case $line in
+      '# branch.oid '*)  oid=${line#\# branch.oid } ;;
+      '# branch.head '*) branch=${line#\# branch.head } ;;
+      '# branch.ab '*)   ahead=${${line#\# branch.ab +}%% *}; behind=${line##* -} ;;
+      # Changed files: "1 XY ..." / "2 XY ..." where X is staged and Y unstaged
+      # ("." means no change); "u ..." is a merge conflict
+      [12]' '*)
+        [[ ${line[3]} != . ]] && staged='%F{green}+%f'
+        [[ ${line[4]} != . ]] && unstaged='%F{red}*%f'
+        ;;
+      'u '*) unstaged='%F{red}*%f' ;;
+    esac
+  done
+
+  # In-progress operations, from marker files git leaves in .git
+  if [[ -d $gitdir/rebase-merge || -d $gitdir/rebase-apply ]]; then
+    action=rebase
+    # During a rebase HEAD is detached; show the branch being rebased instead
+    local head_name
+    for head_name in $gitdir/rebase-{merge,apply}/head-name(N); do
+      branch=${$(<$head_name)#refs/heads/}
+    done
+  elif [[ -f $gitdir/MERGE_HEAD ]]; then       action=merge
+  elif [[ -f $gitdir/CHERRY_PICK_HEAD ]]; then action=cherry-pick
+  elif [[ -f $gitdir/REVERT_HEAD ]]; then      action=revert
+  elif [[ -f $gitdir/BISECT_LOG ]]; then       action=bisect
+  fi
+
+  [[ $branch == '(detached)' ]] && branch=${oid[1,7]}
+  (( ahead ))  && ab+="↑$ahead"
+  (( behind )) && ab+="↓$behind"
+
+  # % doubled so a % in a branch name isn't read as prompt formatting
+  _prompt_git_msg=" %F{magenta}🌿 ${branch//\%/%%}${action:+|$action}%f${unstaged}${staged}"
+  [[ -n $ab ]] && _prompt_git_msg+=" %F{magenta}$ab%f"
+  return 0
+}
 
 _cmd_timer_start() {
   CMD_START_TIME=$SECONDS
 }
 
 _prompt_precmd() {
-  vcs_info
+  _prompt_git
   if [[ -n $CMD_START_TIME ]]; then
     local elapsed=$(( SECONDS - CMD_START_TIME ))
     if (( elapsed >= 3 )); then
@@ -109,7 +176,7 @@ setopt PROMPT_SUBST
 
 # Clean single-line layout: ~ (git) ❯   -- the ❯ turns red after a failed command.
 # Long paths shorten to …/last/three. A failed command shows its exit code (✘ 127).
-PROMPT='%F{cyan}%(4~|…/%3~|%~)%f${vcs_info_msg_0_}${_prompt_extra_msg} %(?..%F{red}✘%? %f)%(?.%F{green}.%F{red})❯%f '
+PROMPT='%F{cyan}%(4~|…/%3~|%~)%f${_prompt_git_msg}${_prompt_extra_msg} %(?..%F{red}✘%? %f)%(?.%F{green}.%F{red})❯%f '
 
 # ==============================================================================
 # 4. ERROR HANDLERS & HOOKS
@@ -288,9 +355,14 @@ if [[ "$OSTYPE" == darwin* && "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
   TERMINAL_LIGHT_PROFILE="Oceanic Next Light"
   typeset -g _appearance_checked_at=-999 _appearance_profile=""
 
+  # Once a profile is found it's remembered, so Terminal's settings file is only
+  # read again while a profile is still missing (to notice it being installed)
+  typeset -gA _terminal_profiles_found
   _terminal_profile_installed() {
+    (( ${+_terminal_profiles_found[$1]} )) && return 0
     /usr/libexec/PlistBuddy -c "Print ':Window Settings:$1:name'" \
-      ~/Library/Preferences/com.apple.Terminal.plist >/dev/null 2>&1
+      ~/Library/Preferences/com.apple.Terminal.plist >/dev/null 2>&1 || return 1
+    _terminal_profiles_found[$1]=1
   }
 
   _sync_terminal_appearance() {
