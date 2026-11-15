@@ -72,6 +72,12 @@ out="$(HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c 'whence -w mkcd extra
 $out"
 pass "functions and aliases load"
 
+# The as-you-type highlighter colors command lines correctly (tests/highlight.zsh)
+out="$(cd "$REPO" && HOME="$TEST_HOME" ZDOTDIR="$TEST_HOME" zsh -l -i -c "source '$REPO/tests/highlight.zsh'" </dev/null 2>&1)" \
+  || fail "command-line highlighter:
+$out"
+pass "command-line highlighter"
+
 # --- Vim ----------------------------------------------------------------------
 # Vim needs a terminal to load plugins normally, so run it under script(1)
 # and record any error messages to a file.

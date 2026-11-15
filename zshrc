@@ -96,7 +96,8 @@ add-zsh-hook precmd _prompt_precmd
 typeset -g _prompt_extra_msg=""
 _prompt_extra() {
   local extra=""
-  [[ -n $VIRTUAL_ENV ]]    && extra+=" %F{blue}(${VIRTUAL_ENV:t})%f"   # Active Python venv
+  # Active Python venv (% doubled so a % in the folder name isn't read as formatting)
+  [[ -n $VIRTUAL_ENV ]]    && extra+=" %F{blue}(${${VIRTUAL_ENV:t}//\%/%%})%f"
   [[ -n $SSH_CONNECTION ]] && extra+=" %F{yellow}%n@%m%f"             # user@host, only over SSH
   (( ${#jobstates} ))      && extra+=" %F{yellow}⚙${#jobstates}%f"     # Background/suspended jobs
   [[ -w $PWD ]]            || extra+=" %F{red}🔒%f"                    # Folder you can't write to
@@ -148,12 +149,18 @@ bindkey "^[OB" down-line-or-beginning-search
 # ------------------------------------------------------------------------------
 _highlight_line() {
   region_highlight=()
-  local -i i=1 n=${#BUFFER} start
-  local ch word q expect_cmd=1
+  local -i i=1 n=${#BUFFER} start expect_cmd=1 after_wrapper=0
+  local ch word q target
+  # Words that can start a command besides programs, aliases, functions, builtins
   local -a reserved=(if then else elif fi for while until do done case esac
-                     function select in time coproc)
+                     function select in time coproc repeat '[[' '{' '}' '!')
   while (( i <= n )); do
     ch=$BUFFER[i]
+
+    # A newline ends a command, just like ;
+    if [[ $ch == $'\n' ]]; then
+      expect_cmd=1; after_wrapper=0; (( i++ )); continue
+    fi
     if [[ $ch == [[:space:]] ]]; then (( i++ )); continue; fi
     start=$i
 
@@ -163,11 +170,16 @@ _highlight_line() {
       break
     fi
 
-    # Quoted string: up to the matching quote (or end of line if unclosed)
+    # Quoted string: up to the matching quote (or end of line if unclosed).
+    # Inside "double quotes" a backslash escapes the next character.
     if [[ $ch == [\'\"] ]]; then
       q=$ch; (( i++ ))
-      while (( i <= n )) && [[ $BUFFER[i] != $q ]]; do (( i++ )); done
+      while (( i <= n )) && [[ $BUFFER[i] != $q ]]; do
+        [[ $q == '"' && $BUFFER[i] == '\' ]] && (( i++ ))
+        (( i++ ))
+      done
       (( i++ ))
+      (( i > n + 1 )) && (( i = n + 1 ))
       region_highlight+=("$((start-1)) $((i-1)) fg=yellow")
       expect_cmd=0
       continue
@@ -177,34 +189,65 @@ _highlight_line() {
     if [[ $ch == [\;\|\&] ]]; then
       while (( i <= n )) && [[ $BUFFER[i] == [\;\|\&] ]]; do (( i++ )); done
       region_highlight+=("$((start-1)) $((i-1)) bold")
-      expect_cmd=1
+      expect_cmd=1; after_wrapper=0
       continue
     fi
 
-    # Bare word: runs until a space, quote or operator
-    while (( i <= n )) && [[ $BUFFER[i] != [[:space:]] && $BUFFER[i] != [\'\"\;\|\&] ]]; do
+    # (( starts arithmetic; ( starts a subshell whose first word is a command
+    if [[ $ch == '(' ]]; then
+      if (( expect_cmd )) && [[ $BUFFER[i+1] == '(' ]]; then
+        (( i += 2 ))
+        region_highlight+=("$((start-1)) $((i-1)) fg=green")
+        expect_cmd=0
+      else
+        (( i++ )); expect_cmd=1
+      fi
+      after_wrapper=0
+      continue
+    fi
+    if [[ $ch == ')' ]]; then (( i++ )); expect_cmd=0; continue; fi
+
+    # Bare word: runs until a space, quote, operator or parenthesis.
+    # A backslash keeps the next character in the word (\" is not a quote).
+    while (( i <= n )); do
+      ch=$BUFFER[i]
+      if [[ $ch == '\' ]]; then (( i += 2 )); continue; fi
+      [[ $ch == [[:space:]\'\"\;\|\&\(\)] ]] && break
       (( i++ ))
     done
+    (( i > n + 1 )) && (( i = n + 1 ))
     word=$BUFFER[start,i-1]
 
     if (( expect_cmd )) && [[ $word != [A-Za-z_]*=* ]]; then
+      # An option to a wrapper (sudo -u root ls): the next word may be the
+      # option's argument rather than a command, so stop checking here
+      if (( after_wrapper )) && [[ $word == -* ]]; then
+        region_highlight+=("$((start-1)) $((i-1)) fg=cyan")
+        expect_cmd=0; after_wrapper=0
+        continue
+      fi
       case $word in
         # Wrappers run another command next, so the next word is still a command
-        sudo|nohup|builtin|command|exec|noglob)
+        sudo|nohup|builtin|command|exec|noglob|nocorrect)
           region_highlight+=("$((start-1)) $((i-1)) fg=green")
-          expect_cmd=1
+          expect_cmd=1; after_wrapper=1
           ;;
         *)
+          after_wrapper=0
+          target=${word/#\~/$HOME}
           if (( ${+commands[$word]} || ${+aliases[$word]} || ${+functions[$word]} \
-                || ${+builtins[$word]} || ${reserved[(Ie)$word]} )); then
+                || ${+builtins[$word]} || ${reserved[(Ie)$word]} )) \
+             || [[ $word == */* && -x $target && ! -d $target ]] \
+             || [[ -o autocd && -d $target ]]; then
+            # A program, path to a program, keyword, or a folder (AUTO_CD cds)
             region_highlight+=("$((start-1)) $((i-1)) fg=green")
           else
             region_highlight+=("$((start-1)) $((i-1)) fg=red")
           fi
-          # Keywords like if/then/do are followed by a command; for/case/fi are not
+          # Keywords like if/then/do/{ are followed by a command; for/case/fi are not
           expect_cmd=0
           case $word in
-            if|then|else|elif|do|while|until|time|'!') expect_cmd=1 ;;
+            if|then|else|elif|do|while|until|time|'!'|'{') expect_cmd=1 ;;
           esac
           ;;
       esac
@@ -216,6 +259,9 @@ _highlight_line() {
   done
 }
 zle -N zle-line-pre-redraw _highlight_line
+# Also color a line that starts out filled in (Esc-q push-line, print -z), which
+# otherwise stays plain until the first keystroke
+zle -N zle-line-init _highlight_line
 
 # Functions and aliases live in their own files next to this one in the dotfiles
 # repo. ${(%):-%x} is this file's path; :A follows the ~/.zshrc symlink to the

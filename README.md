@@ -31,9 +31,28 @@ shows the version that matches your theme.*
 **zsh** (`zshrc`)
 - Large deduplicated history shared across sessions
 - Built-in completion with case-insensitive and fuzzy matching
-- Minimal one-line prompt with the current directory, git branch and status,
-  turning red after a failed command
-- Run time shown for commands that take 3 seconds or more
+- A one-line prompt that shows only what applies right now:
+
+  ```
+  …/Projects/dotfiles 🌿 main*+ (venv) ⚙1 🔒 ✘ 127 ❯
+  ```
+
+  | Part | Meaning |
+  |---|---|
+  | `…/Projects/dotfiles` | Current folder, shortened to the last three parts |
+  | `🌿 main*+` | Git branch; `*` unstaged and `+` staged changes |
+  | `(venv)` | Active Python virtual environment |
+  | `user@host` | Shown only when connected over SSH |
+  | `⚙1` | Number of background or suspended jobs |
+  | `🔒` | You can't write to this folder |
+  | `✘ 127 ❯` | The last command failed with this exit code (the `❯` turns red) |
+
+- Run time shown for commands that take 3 seconds or more (`⏱️ 2m 5s`)
+- **Syntax coloring as you type**, built from zsh itself with no plugin: the
+  command turns green if it exists and red if it doesn't (programs, aliases,
+  functions, paths to executables, and folders you can `cd` into by name).
+  Options are cyan, strings yellow, `$variables` magenta, comments grey and
+  `|` `&&` `;` bold. It's tested by `tests/highlight.zsh`.
 - In macOS Terminal, **switches the Terminal profile to match light/dark mode**,
   using the Oceanic Next profiles below so the shell matches Vim
 
@@ -76,6 +95,7 @@ shows the version that matches your theme.*
 - `PATH` with `~/bin` first, duplicates removed, and Homebrew set up if installed
 - Vim as `EDITOR`/`VISUAL`, and as the man page viewer (`MANPAGER`)
 - Friendlier `less` defaults: smart-case search, colors, exits on short output
+- `ls` colors (`LSCOLORS`): bold blue folders, magenta links, green executables
 - Loads `~/.zprofile.local` for machine-specific tool integrations
 
 **git** (`gitconfig`, `gitignore_global`)
@@ -205,8 +225,9 @@ tests/smoke.sh
 
 The smoke tests install everything into a throwaway home folder (your real one
 is untouched), then check that zsh starts with no output and a clean exit
-status, Vim starts with no errors, `macos.sh` changes nothing without
-confirmation, and `bootstrap.sh` can clone and set up a fresh home folder.
+status, the as-you-type highlighter colors 20 sample command lines correctly,
+Vim starts with no errors, `macos.sh` changes nothing without confirmation, and
+`bootstrap.sh` can clone and set up a fresh home folder.
 
 GitHub Actions runs these tests on macOS for every push and pull request, along
 with [ShellCheck](https://www.shellcheck.net) on the shell scripts and a full
