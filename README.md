@@ -34,21 +34,32 @@ shows the version that matches your theme.*
 - A one-line prompt that shows only what applies right now:
 
   ```
-  …/Projects/dotfiles 🌿 main*+ ↑2↓1 (venv) ⚙1 🔒 ✘ 127 ❯
+  dotfiles/tests 🌿 main|rebase 2/5=*+? ↑2↓1 $1 (venv) ⚙1 🔒 ↳2 ✘ INT ❯
   ```
 
   | Part | Meaning |
   |---|---|
-  | `…/Projects/dotfiles` | Current folder, shortened to the last three parts |
-  | `🌿 main*+` | Git branch; `*` unstaged and `+` staged changes. During a merge, rebase, cherry-pick, revert or bisect it shows that too (`main\|merge`) |
+  | `dotfiles/tests` | Current folder. Inside a git repo it starts at the repo (`dotfiles/…/b/c` when deep); elsewhere it's `~/path`, shortened to the last three parts |
+  | `🌿 main` | Git branch (a short commit hash when detached) |
+  | `\|rebase 2/5` | An operation in progress: merge, cherry-pick, revert, bisect, or a rebase with how far it has got |
+  | `=` `*` `+` `?` | Merge conflicts, unstaged changes, staged changes, untracked files |
   | `↑2↓1` | Commits ahead of and behind the upstream branch |
+  | `$1` | Number of stashes |
   | `(venv)` | Active Python virtual environment |
   | `user@host` | Shown only when connected over SSH |
   | `⚙1` | Number of background or suspended jobs |
   | `🔒` | You can't write to this folder |
-  | `✘ 127 ❯` | The last command failed with this exit code (the `❯` turns red) |
+  | `↳2` | You're in a shell inside another shell (`zsh`, vim's `:terminal`); `exit` returns to the outer one |
+  | `✘ INT ❯` | The last command failed: its exit code, or the signal's name when one stopped it (`INT` for Ctrl-C, `KILL`, `TERM`). The `❯` turns red |
 
-- Run time shown for commands that take 3 seconds or more (`⏱️ 2m 5s`)
+  Once you press Enter, that prompt collapses to just `❯ command`, so your
+  scrollback shows commands instead of repeated folders and branches (a
+  "transient prompt"). All of it is plain zsh, with no prompt framework.
+
+- Run time shown for commands that take 3 seconds or more (`⏱️ 2m 5s`). Commands
+  taking 30 seconds or more also post a macOS notification if you've switched
+  to another app; change the threshold with `PROMPT_NOTIFY_SECONDS` in
+  `~/.zshrc.local` (`0` turns it off)
 - **Syntax coloring as you type**, built from zsh itself with no plugin: the
   command turns green if it exists and red if it doesn't (programs, aliases,
   functions, paths to executables, and folders you can `cd` into by name).
@@ -236,8 +247,9 @@ tests/smoke.sh
 The smoke tests install everything into a throwaway home folder (your real one
 is untouched), then check that zsh starts with no output and a clean exit
 status, the as-you-type highlighter colors 20 sample command lines correctly,
-the git part of the prompt is right in 14 situations (changes, ahead/behind,
-detached, merge and rebase conflicts), `git cleanup` removes normally merged
+every part of the prompt shows the right thing (git states, stashes, rebase
+progress, repo-relative folders, signal names, shell level, notifications, and
+the transient prompt in a real interactive shell), `git cleanup` removes normally merged
 and squash-merged branches but keeps unmerged ones, Vim starts with no errors, `macos.sh` changes nothing without confirmation, and
 `bootstrap.sh` can clone and set up a fresh home folder.
 
