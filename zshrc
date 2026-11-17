@@ -60,15 +60,21 @@ zstyle ':completion:*:default' list-colors ''   # Default file-type colors (macO
 # ==============================================================================
 # 3. MINIMALIST SINGLE-LINE PROMPT & TIMER
 # ==============================================================================
+#   repo/sub 🌿 main|rebase 2/5=*+? ↑1↓2 $3 (venv) ⚙1 🔒 ↳2 ✘ INT ❯
+# Each part appears only when it applies. Parts are worked out once per prompt
+# by precmd hooks rather than on every redraw, and only the git part runs a
+# command.
 autoload -U colors && colors
 
-# --- Git segment: 🌿 branch|action, * unstaged, + staged, ↑ahead ↓behind --------
+# --- Git segment ----------------------------------------------------------------
+#   🌿 branch|action   = conflicts  * unstaged  + staged  ? untracked
+#   ↑ahead ↓behind the upstream     $N stashes
 # One `git status` call per prompt (about 10 ms), instead of zsh's vcs_info,
 # which runs several git commands (about 60 ms). Outside a repo no git command
 # runs at all, because the .git folder is found by walking up from $PWD.
-typeset -g _prompt_git_msg=""
+typeset -g _prompt_git_msg="" _prompt_repo_root=""
 _prompt_git() {
-  _prompt_git_msg=""
+  _prompt_git_msg="" _prompt_repo_root=""
 
   # Find the .git folder (or, in a worktree/submodule, the .git file pointing to it)
   local dir=$PWD gitdir=""
@@ -83,15 +89,17 @@ _prompt_git() {
     [[ $dir == / ]] && return
     dir=${dir:h}
   done
+  _prompt_repo_root=$dir
 
   # --porcelain=v2 gives branch, upstream ahead/behind and per-file states in
   # one call. GIT_OPTIONAL_LOCKS=0 keeps it from locking the index while other
-  # git commands run. Untracked files aren't shown, so git skips looking for them.
+  # git commands run.
   local -a lines
-  lines=("${(@f)$(GIT_OPTIONAL_LOCKS=0 git status --porcelain=v2 --branch \
-                  --untracked-files=no 2>/dev/null)}") || return
+  lines=("${(@f)$(GIT_OPTIONAL_LOCKS=0 git status --porcelain=v2 --branch 2>/dev/null)}") \
+    || return
 
-  local line oid="" branch="" staged="" unstaged="" action="" ab=""
+  local line oid="" branch="" action="" ab="" stash=""
+  local conflicts="" unstaged="" staged="" untracked=""
   local -i ahead=0 behind=0
   for line in $lines; do
     case $line in
@@ -99,12 +107,13 @@ _prompt_git() {
       '# branch.head '*) branch=${line#\# branch.head } ;;
       '# branch.ab '*)   ahead=${${line#\# branch.ab +}%% *}; behind=${line##* -} ;;
       # Changed files: "1 XY ..." / "2 XY ..." where X is staged and Y unstaged
-      # ("." means no change); "u ..." is a merge conflict
+      # ("." means no change); "u ..." is a merge conflict; "? ..." untracked
       [12]' '*)
         [[ ${line[3]} != . ]] && staged='%F{green}+%f'
         [[ ${line[4]} != . ]] && unstaged='%F{red}*%f'
         ;;
-      'u '*) unstaged='%F{red}*%f' ;;
+      'u '*) conflicts='%F{red}=%f' ;;
+      '? '*) untracked='%F{yellow}?%f' ;;
     esac
   done
 
@@ -112,44 +121,132 @@ _prompt_git() {
   if [[ -d $gitdir/rebase-merge || -d $gitdir/rebase-apply ]]; then
     action=rebase
     # During a rebase HEAD is detached; show the branch being rebased instead
-    local head_name
-    for head_name in $gitdir/rebase-{merge,apply}/head-name(N); do
-      branch=${$(<$head_name)#refs/heads/}
+    local f step="" total=""
+    for f in $gitdir/rebase-{merge,apply}/head-name(N); do
+      branch=${$(<$f)#refs/heads/}
     done
+    # Progress, e.g. "rebase 2/5" (rebase-merge keeps msgnum/end, rebase-apply next/last)
+    if [[ -f $gitdir/rebase-merge/msgnum ]]; then
+      step=$(<$gitdir/rebase-merge/msgnum); total=$(<$gitdir/rebase-merge/end)
+    elif [[ -f $gitdir/rebase-apply/next ]]; then
+      step=$(<$gitdir/rebase-apply/next); total=$(<$gitdir/rebase-apply/last)
+    fi
+    [[ -n $step && -n $total ]] && action+=" $step/$total"
   elif [[ -f $gitdir/MERGE_HEAD ]]; then       action=merge
   elif [[ -f $gitdir/CHERRY_PICK_HEAD ]]; then action=cherry-pick
   elif [[ -f $gitdir/REVERT_HEAD ]]; then      action=revert
   elif [[ -f $gitdir/BISECT_LOG ]]; then       action=bisect
   fi
 
+  # Stashes, counted from git's stash log (shared by all worktrees of a repo)
+  local common=$gitdir
+  if [[ -f $gitdir/commondir ]]; then
+    common=$(<$gitdir/commondir)
+    [[ $common == /* ]] || common=$gitdir/$common
+  fi
+  [[ -s $common/logs/refs/stash ]] \
+    && stash=" %F{yellow}\$${#${(f)"$(<$common/logs/refs/stash)"}}%f"
+
   [[ $branch == '(detached)' ]] && branch=${oid[1,7]}
   (( ahead ))  && ab+="↑$ahead"
   (( behind )) && ab+="↓$behind"
 
   # % doubled so a % in a branch name isn't read as prompt formatting
-  _prompt_git_msg=" %F{magenta}🌿 ${branch//\%/%%}${action:+|$action}%f${unstaged}${staged}"
+  _prompt_git_msg=" %F{magenta}🌿 ${branch//\%/%%}${action:+|$action}%f"
+  _prompt_git_msg+="${conflicts}${unstaged}${staged}${untracked}"
   [[ -n $ab ]] && _prompt_git_msg+=" %F{magenta}$ab%f"
+  _prompt_git_msg+=$stash
   return 0
+}
+
+# --- Folder -----------------------------------------------------------------------
+# Inside a repo the path starts at the repo (dotfiles/tests, dotfiles/…/b/c);
+# elsewhere it's the usual ~/path, shortened to …/last/three
+typeset -g _prompt_dir_msg=""
+_prompt_dir() {
+  if [[ -n $_prompt_repo_root && $_prompt_repo_root != $HOME && $_prompt_repo_root != / ]]; then
+    local rel=${PWD#$_prompt_repo_root}
+    local -a parts=(${(s:/:)rel})
+    (( ${#parts} > 2 )) && rel="/…/${parts[-2]}/${parts[-1]}"
+    local shown=${_prompt_repo_root:t}$rel
+    _prompt_dir_msg=${shown//\%/%%}
+  else
+    _prompt_dir_msg='%(4~|…/%3~|%~)'
+  fi
+}
+
+# --- Exit status --------------------------------------------------------------------
+# After a failure: ✘ and the exit code, or the signal's name when a signal ended
+# the command (130 → INT for Ctrl-C, 137 → KILL, 143 → TERM)
+typeset -g _prompt_status_msg=""
+_prompt_status() {
+  local -i code=${1:-0}
+  local label=$code
+  (( code > 128 && code - 127 <= ${#signals} )) && label=$signals[code-127]
+  _prompt_status_msg=""
+  (( code )) && _prompt_status_msg="%F{red}✘ $label%f "
+  return 0
+}
+
+# --- Command timer and long-command notification --------------------------------------
+# Commands taking 3 seconds or more print their run time. Ones taking
+# PROMPT_NOTIFY_SECONDS (default 30) or more also post a macOS notification if
+# the terminal isn't the front app, i.e. you switched away while waiting.
+# Set PROMPT_NOTIFY_SECONDS=0 in ~/.zshrc.local to turn notifications off.
+: ${PROMPT_NOTIFY_SECONDS:=30}
+
+_prompt_duration() {   # 125 -> "2m 5s"
+  local -i t=$1 h m s
+  (( h = t / 3600, m = t % 3600 / 60, s = t % 60 ))
+  if (( h )); then print -r -- "${h}h ${m}m ${s}s"
+  elif (( m )); then print -r -- "${m}m ${s}s"
+  else print -r -- "${s}s"; fi
+}
+
+_prompt_notify() {     # _prompt_notify <seconds> <exit status> <command>
+  [[ $OSTYPE == darwin* ]] || return 0
+  local app front mark='✓'
+  case $TERM_PROGRAM in
+    Apple_Terminal) app=Terminal ;;
+    iTerm.app)      app=iTerm2 ;;
+    vscode)         app=Code ;;
+    ghostty)        app=Ghostty ;;
+    WezTerm)        app=WezTerm ;;
+  esac
+  # Skip it while the terminal is the front app: you saw the command finish
+  if [[ -n $app ]]; then
+    front=$(lsappinfo info -only name "$(lsappinfo front 2>/dev/null)" 2>/dev/null)
+    [[ $front == *\"$app\"* ]] && return 0
+  fi
+  (( $2 )) && mark='✘'
+  # Text is passed as arguments, never pasted into the script, so any command is safe
+  osascript -e 'on run argv' \
+            -e 'display notification (item 1 of argv) with title (item 2 of argv)' \
+            -e 'end run' \
+            "${3[1,60]} finished after $(_prompt_duration $1) $mark" "${app:-Terminal}" \
+            >/dev/null 2>&1 &!
 }
 
 _cmd_timer_start() {
   CMD_START_TIME=$SECONDS
+  CMD_TEXT=$1
 }
 
 _prompt_precmd() {
+  local -i last_status=$?   # first: the exit status of the command that just ran
+  _prompt_status $last_status
   _prompt_git
+  _prompt_dir
+  PROMPT=$_prompt_full      # the transient prompt shortened it; restore it
   if [[ -n $CMD_START_TIME ]]; then
-    local elapsed=$(( SECONDS - CMD_START_TIME ))
-    if (( elapsed >= 3 )); then
-      # 125 seconds shows as "2m 5s", not "125s"
-      local h=$(( elapsed / 3600 )) m=$(( elapsed % 3600 / 60 )) s=$(( elapsed % 60 )) dur
-      if (( h > 0 )); then dur="${h}h ${m}m ${s}s"
-      elif (( m > 0 )); then dur="${m}m ${s}s"
-      else dur="${s}s"; fi
-      print -P "%F{yellow}⏱️  ${dur}%f"
+    local -i elapsed=$(( SECONDS - CMD_START_TIME ))
+    (( elapsed >= 3 )) && print -P "%F{yellow}⏱️  $(_prompt_duration $elapsed)%f"
+    if (( PROMPT_NOTIFY_SECONDS > 0 && elapsed >= PROMPT_NOTIFY_SECONDS )); then
+      _prompt_notify $elapsed $last_status "$CMD_TEXT"
     fi
-    unset CMD_START_TIME
+    unset CMD_START_TIME CMD_TEXT
   fi
+  return 0
 }
 
 # Registered as hooks (not by defining precmd/preexec directly) so other tools'
@@ -158,8 +255,7 @@ autoload -Uz add-zsh-hook
 add-zsh-hook preexec _cmd_timer_start
 add-zsh-hook precmd _prompt_precmd
 
-# Extra context shown after the directory, computed once per prompt rather than
-# on every redraw. Each piece appears only when it applies.
+# --- Extra context ------------------------------------------------------------------
 typeset -g _prompt_extra_msg=""
 _prompt_extra() {
   local extra=""
@@ -168,15 +264,29 @@ _prompt_extra() {
   [[ -n $SSH_CONNECTION ]] && extra+=" %F{yellow}%n@%m%f"             # user@host, only over SSH
   (( ${#jobstates} ))      && extra+=" %F{yellow}⚙${#jobstates}%f"     # Background/suspended jobs
   [[ -w $PWD ]]            || extra+=" %F{red}🔒%f"                    # Folder you can't write to
+  # A shell inside another shell (typing `zsh`, vim's :terminal): a reminder
+  # that `exit` returns to the outer one. `reload` (exec zsh) keeps the level.
+  (( SHLVL > 1 ))          && extra+=" %F{yellow}↳$SHLVL%f"
   _prompt_extra_msg=$extra
 }
 add-zsh-hook precmd _prompt_extra
 
 setopt PROMPT_SUBST
 
-# Clean single-line layout: ~ (git) ❯   -- the ❯ turns red after a failed command.
-# Long paths shorten to …/last/three. A failed command shows its exit code (✘ 127).
-PROMPT='%F{cyan}%(4~|…/%3~|%~)%f${_prompt_git_msg}${_prompt_extra_msg} %(?..%F{red}✘%? %f)%(?.%F{green}.%F{red})❯%f '
+_prompt_full='%F{cyan}${_prompt_dir_msg}%f${_prompt_git_msg}${_prompt_extra_msg} ${_prompt_status_msg}%(?.%F{green}.%F{red})❯%f '
+PROMPT=$_prompt_full
+
+# --- Transient prompt -------------------------------------------------------------------
+# When you press Enter, the prompt you typed at is redrawn as just "❯ command",
+# so scrollback shows your commands without repeated folders and branches.
+# precmd puts the full prompt back before the next one is drawn.
+_prompt_short='%(?.%F{green}.%F{red})❯%f '
+_prompt_transient() {
+  [[ $PROMPT == $_prompt_short ]] && return 0
+  PROMPT=$_prompt_short
+  zle .reset-prompt
+}
+zle -N zle-line-finish _prompt_transient
 
 # ==============================================================================
 # 4. ERROR HANDLERS & HOOKS
