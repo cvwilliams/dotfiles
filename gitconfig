@@ -58,6 +58,54 @@
 	branches = branch -vv
 	aliases = config --get-regexp ^alias\\.
 
+	# Your branches, most recently used first, with when and what changed last
+	recent = for-each-ref --sort=-committerdate --count=15 refs/heads/ --format='%(HEAD) %(color:yellow)%(align:30)%(refname:short)%(end)%(color:reset) %(color:green)%(align:16)%(committerdate:relative)%(end)%(color:reset) %(contents:subject)'
+
+	# Delete local branches already merged into main, including GitHub "Squash
+	# and merge" ones. Fetches first, lists them and asks; -y skips the
+	# question, -n only lists. main and the current branch are never deleted.
+	# A squash merge is spotted by building the branch's changes as one commit
+	# and asking `git cherry` whether main already has the same change ("-").
+	cleanup = "!f() { \
+		git rev-parse --git-dir >/dev/null || return 1; \
+		mode=ask; \
+		case \"$1\" in -y|--yes) mode=yes ;; -n|--dry-run) mode=list ;; '') ;; \
+			*) echo 'usage: git cleanup [-y | -n]' >&2; return 2 ;; esac; \
+		if git remote get-url origin >/dev/null 2>&1; then \
+			git fetch --quiet --prune origin || echo 'note: could not fetch origin' >&2; fi; \
+		default=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); \
+		default=${default#origin/}; \
+		[ -n \"$default\" ] || default=$(git config init.defaultBranch || echo main); \
+		base=$default; \
+		git rev-parse --verify --quiet \"refs/remotes/origin/$default\" >/dev/null && base=origin/$default; \
+		current=$(git symbolic-ref --quiet --short HEAD); \
+		found=''; \
+		for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do \
+			if [ \"$b\" = \"$default\" ] || [ \"$b\" = \"$current\" ]; then continue; fi; \
+			if ! git merge-base --is-ancestor \"$b\" \"$base\"; then \
+				fork=$(git merge-base \"$base\" \"$b\") || continue; \
+				squashed=$(git commit-tree \"$b^{tree}\" -p \"$fork\" -m squash); \
+				case $(git cherry \"$base\" \"$squashed\") in -*) ;; *) continue ;; esac; \
+			fi; \
+			found=\"$found $b\"; \
+		done; \
+		if [ -z \"$found\" ]; then \
+			echo \"Nothing to clean up: no other local branches are merged into $base.\"; return 0; fi; \
+		echo \"Merged into $base:\"; \
+		for b in $found; do echo \"  $b  ($(git rev-parse --short \"$b\"))\"; done; \
+		[ \"$mode\" = list ] && return 0; \
+		if [ \"$mode\" = ask ]; then \
+			printf 'Delete these branches? [y/N] '; \
+			read -r reply 2>/dev/null </dev/tty || reply=''; \
+			case \"$reply\" in [yY]|[yY][eE][sS]) ;; *) echo 'Nothing deleted.'; return 0 ;; esac; \
+		fi; \
+		for b in $found; do \
+			c=$(git rev-parse --short \"$b\"); \
+			git branch --quiet -D \"$b\" && echo \"deleted $b (was $c)\"; \
+		done; \
+		echo 'To restore one: git branch <name> <commit>'; \
+	}; f"
+
 # Must stay last so local settings win
 [include]
 	path = ~/.gitconfig.local

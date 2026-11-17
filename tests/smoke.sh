@@ -39,7 +39,7 @@ pass "syntax"
 printf '[user]\n\tname = Test Person\n\temail = test@example.com\n' > "$TEST_HOME/.gitconfig"
 
 HOME="$TEST_HOME" "$REPO/install.sh" >/dev/null
-for f in .gitconfig .gitignore_global .vimrc .zprofile .zshrc; do
+for f in .gitconfig .gitignore_global .hushlogin .vimrc .zprofile .zshrc; do
   [[ -L "$TEST_HOME/$f" ]] || fail "install.sh did not link ~/$f"
 done
 if HOME="$TEST_HOME" "$REPO/install.sh" | grep -qE '^(backup|moved)'; then
@@ -54,6 +54,12 @@ pass "install.sh links files and is safe to re-run"
   || fail "gitconfig settings aren't active"
 HOME="$TEST_HOME" git config alias.st >/dev/null || fail "git aliases missing"
 pass "git keeps your identity and loads gitconfig"
+
+# git cleanup (normal and squash merges) and git recent (tests/git-aliases.sh)
+out="$(HOME="$TEST_HOME" bash "$REPO/tests/git-aliases.sh" 2>&1)" \
+  || fail "git cleanup / git recent:
+$out"
+pass "git cleanup and git recent"
 
 # --- zsh ----------------------------------------------------------------------
 # A login + interactive shell must print nothing and start with exit status 0
