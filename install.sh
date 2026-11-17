@@ -53,6 +53,7 @@ setup_git_identity() {
 setup_git_identity
 link gitconfig .gitconfig
 link gitignore_global .gitignore_global
+link hushlogin .hushlogin          # Empty file: hides "Last login" in new terminals
 link vimrc .vimrc
 link zprofile .zprofile
 link zshrc .zshrc
